@@ -29,8 +29,8 @@ JOURNAL_FILE = "trade_journal.json"
 ST_PERIOD  = 10
 ST_MULT    = 3.0
 EMA_PERIOD = 50
-TF_TREND   = 30
-TF_ENTRY   = 10
+TF_TREND   = 30   # 30-min chart for trend
+TF_ENTRY   = 5    # 5-min chart for entry (closest to 10m available on Delta)
 
 # ─────────────────────────────────────────
 #  LOGGING
@@ -56,9 +56,11 @@ class DeltaClient:
     def get_candles(self, symbol: str, resolution: int, limit: int = 200) -> pd.DataFrame:
         end_time   = int(time.time())
         start_time = end_time - (resolution * 60 * limit)
+        resolution_map = {1: "1m", 5: "5m", 10: "5m", 15: "15m", 30: "30m", 60: "1h"}
+        res_str = resolution_map.get(resolution, "30m")
         url = f"{BASE_URL}/v2/history/candles"
         params = {
-            "resolution": resolution,
+            "resolution": res_str,
             "symbol":     symbol,
             "start":      start_time,
             "end":        end_time,
