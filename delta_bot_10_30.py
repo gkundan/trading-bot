@@ -9,7 +9,7 @@ import time
 import logging
 import json
 import os
-from datetime import datetime
+from datetime import datetime, timezone
 import pandas as pd
 import numpy as np
 import requests
@@ -19,9 +19,9 @@ import requests
 # ─────────────────────────────────────────
 API_KEY    = os.environ.get("DELTA_API_KEY", "")
 API_SECRET = os.environ.get("DELTA_API_SECRET", "")
-BASE_URL   = "https://cdn.india.deltaex.org"   # Change to https://api.india.delta.exchange for live
+BASE_URL   = "https://api.india.delta.exchange"
 
-SYMBOL       = "BTCUSDT"
+SYMBOL       = "BTCUSD"
 CAPITAL      = float(os.environ.get("CAPITAL", "50.0"))
 RISK_PERCENT = 0.01
 JOURNAL_FILE = "trade_journal.json"
@@ -196,7 +196,7 @@ class PaperTrader:
             "sl":        sl,
             "tp":        tp,
             "size_btc":  size_btc,
-            "open_time": datetime.utcnow().isoformat()
+            "open_time": datetime.now(timezone.utc).isoformat()
         }
         log.info(f"📈 [PAPER] {direction.upper()} | Entry:{entry:.2f} SL:{sl:.2f} TP:{tp:.2f} Size:{size_btc:.5f} BTC")
         return True
@@ -229,7 +229,7 @@ class PaperTrader:
         if closed:
             self.capital += outcome
             journal.log_trade({**p, "exit_price": current_price, "outcome": round(outcome, 4),
-                                "close_time": datetime.utcnow().isoformat()})
+                                "close_time": datetime.now(timezone.utc).isoformat()})
             self.position = None
         return closed
 
@@ -247,7 +247,7 @@ class Strategy1030:
         self.last_trade_date  = None
 
     def _reset_daily(self):
-        today = datetime.utcnow().date()
+        today = datetime.now(timezone.utc).date()
         if self.last_trade_date != today:
             self.trades_today    = 0
             self.losses_today    = 0
@@ -346,7 +346,7 @@ class Strategy1030:
         self.journal.summary()
         while True:
             try:
-                log.info(f"── Tick {datetime.utcnow().strftime('%H:%M:%S')} UTC ──")
+                log.info(f"── Tick {datetime.now(timezone.utc).strftime('%H:%M:%S')} UTC ──")
                 self.run_once()
             except KeyboardInterrupt:
                 log.info("Bot stopped.")
