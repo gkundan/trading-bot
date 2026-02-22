@@ -70,11 +70,26 @@ class DeltaClient:
             r.raise_for_status()
             data = r.json()
             if data.get("success") and data.get("result"):
-                df = pd.DataFrame(data["result"])
-                df.columns = ["time", "open", "high", "low", "close", "volume"]
+                raw = data["result"]
+                if not raw:
+                    return pd.DataFrame()
+                # Delta Exchange returns list of dicts with keys: time, open, high, low, close, volume
+                if isinstance(raw[0], dict):
+                    df = pd.DataFrame(raw)
+                    # Rename columns if they use different keys
+                    col_map = {"t": "time", "o": "open", "h": "high", "l": "low", "c": "close", "v": "volume"}
+                    df = df.rename(columns=col_map)
+                    # Make sure we have the right columns
+                    if "time" not in df.columns and df.columns[0] != "time":
+                        df.columns = ["time", "open", "high", "low", "close", "volume"]
+                else:
+                    # List of lists
+                    df = pd.DataFrame(raw, columns=["time", "open", "high", "low", "close", "volume"])
                 df = df.sort_values("time").reset_index(drop=True)
                 for col in ["open", "high", "low", "close", "volume"]:
-                    df[col] = pd.to_numeric(df[col])
+                    if col in df.columns:
+                        df[col] = pd.to_numeric(df[col])
+                log.info(f"Candles fetched: {len(df)} rows | Last close: {df['close'].iloc[-1]:.2f}")
                 return df
         except Exception as e:
             log.error(f"Failed to fetch candles: {e}")
@@ -283,7 +298,7 @@ class Strategy1030:
         price, st, st_dir = last["close"], last["supertrend"], last["st_direction"]
 
         if trend == "bullish" and st_dir == 1:
-            touched = last["low"] <= st * 1.001
+            touched = last["low"] <= st * 1.005  # 0.5% tolerance
             if touched:
                 swing_low = df.tail(10)["low"].min()
                 sl = swing_low - 10
@@ -295,7 +310,7 @@ class Strategy1030:
                 return {"direction": "long", "entry": price, "sl": sl, "tp": tp, "size_btc": size}
 
         elif trend == "bearish" and st_dir == -1:
-            touched = last["high"] >= st * 0.999
+            touched = last["high"] >= st * 0.995  # 0.5% tolerance
             if touched:
                 swing_high = df.tail(10)["high"].max()
                 sl = swing_high + 10
