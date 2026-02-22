@@ -324,21 +324,26 @@ class Strategy1030:
 
     def run_once(self):
         self._reset_daily()
-        if self.trades_today >= 1:
-            log.info("⛔ Max 1 trade/day reached.")
-            return
-        if self.losses_today >= 2:
-            log.info("⛔ 2 losses today. Stopping for the day.")
-            return
 
+        # ALWAYS check open position first (before daily limit check)
         if self.paper.position:
             price = self.client.get_ticker(SYMBOL)
             if price > 0:
+                p = self.paper.position
+                log.info(f"📊 Monitoring {p['direction'].upper()} | Price:{price:.2f} SL:{p['sl']:.2f} TP:{p['tp']:.2f}")
                 closed = self.paper.check_exit(price, self.journal)
                 if closed:
                     last = self.journal.trades[-1]
                     if last.get("outcome", 0) < 0:
                         self.losses_today += 1
+            return
+
+        # Only look for new trades within daily limits
+        if self.trades_today >= 1:
+            log.info("⛔ Max 1 trade/day reached.")
+            return
+        if self.losses_today >= 2:
+            log.info("⛔ 2 losses today. Stopping for the day.")
             return
 
         trend = self.get_30min_trend()
